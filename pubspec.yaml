@@ -1,0 +1,32 @@
+name: sick_threes
+description: "A starter Flutter app for camera + ML tree labeling + map comments"
+
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  camera: ^0.10.6
+  image_picker: ^1.1.2
+  google_mlkit_image_labeling: ^0.12.0
+  google_maps_flutter: ^2.7.0
+  geolocator: ^12.0.0
+  path_provider: ^2.1.4
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+
+
