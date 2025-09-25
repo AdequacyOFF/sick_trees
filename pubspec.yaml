@@ -15,9 +15,9 @@ dependencies:
   camera: ^0.10.6
   image_picker: ^1.1.2
   google_mlkit_image_labeling: ^0.12.0
-  google_maps_flutter: ^2.7.0
   geolocator: ^12.0.0
   path_provider: ^2.1.4
+  yandex_maps_mapkit: ^4.22.0-beta
 
 
 dev_dependencies:
