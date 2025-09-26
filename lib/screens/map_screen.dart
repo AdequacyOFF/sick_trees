@@ -1,186 +1,290 @@
-import 'dart:async';
+// lib/screens/map_screen.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:yandex_maps_mapkit/mapkit.dart' as mapkit;
-import 'package:geolocator/geolocator.dart';
-import '../services/storage_service.dart';
+
+// Яндекс карта
+import 'package:yandex_maps_mapkit/yandex_map.dart';
+// Типы SDK: Point, MapWindow, IconStyle и т.д.
+import 'package:yandex_maps_mapkit/mapkit.dart' as ymk;
+// Провайдер для иконок из ассетов
+import 'package:yandex_maps_mapkit/image.dart' as yimg;
+// Жизненный цикл SDK (onStart/onStop)
+import 'package:yandex_maps_mapkit/mapkit_factory.dart' show mapkit;
+
 import '../models/tree_spot.dart';
+import '../services/storage_service.dart';
 import '../listeners/tap_listener.dart';
-import '../widgets/flutter_map_widget.dart';
-
-
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
-
   @override
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   final _storage = StorageService();
-
-
-  mapkit.MapWindow? _mapWindow;
-  late mapkit.MapObjectCollection _mapObjectCollection;
-  late final _placemarkTapListener = MapObjectTapListenerImpl(
-    onMapObjectTapped: (mapObject, point) {
-      if (mapObject is mapkit.PlacemarkMapObject) {
-        final spot = mapObject.userData as TreeSpot?;
-        if (spot != null) {
-          _onTreeSpotTap(spot, point);
-        }
-      }
-      return true;
-    },
-  );
-
-  mapkit.Point? _myPos;
-  bool _isLoading = true;
+  ymk.MapWindow? _mapWindow;
+  final List<ymk.MapObject> _objects = [];
 
   @override
   void initState() {
     super.initState();
-    _load();
+    WidgetsBinding.instance.addObserver(this);
+    // ВАЖНО: запускаем MapKit при показе карты
+    mapkit.onStart();
+    _loadSpots();
   }
 
-  Future<void> _load() async {
+  @override
+  void dispose() {
+    _clearMap();
+    WidgetsBinding.instance.removeObserver(this);
+    // ВАЖНО: останавливаем MapKit, чтобы освободить ресурсы
+    mapkit.onStop();
+    super.dispose();
+  }
+
+  Future<void> _loadSpots() async {
     await _storage.load();
-    await _ensureLocation();
-    if (mounted) setState(() => _isLoading = false);
+    if (!mounted) return;
+    setState(() {});
+    _renderAll(); // если карта уже создана — перерисуем маркеры
   }
 
-  Future<void> _ensureLocation() async {
-    LocationPermission perm = await Geolocator.checkPermission();
-    if (perm == LocationPermission.denied) {
-      perm = await Geolocator.requestPermission();
+  void _clearMap() {
+    final map = _mapWindow?.map;
+    if (map == null) return;
+    for (final obj in _objects) {
+      map.mapObjects.remove(obj);
     }
-    final pos = await Geolocator.getCurrentPosition();
-    _myPos = mapkit.Point(latitude: pos.latitude, longitude: pos.longitude);
+    _objects.clear();
   }
 
-  void _createMapObjects(mapkit.MapWindow mapWindow) {
-    _mapWindow = mapWindow;
+  void _moveCameraToInitial() {
+    final mw = _mapWindow;
+    if (mw == null) return;
 
-    // Устанавливаем начальную позицию карты с обязательными параметрами
-    final startPoint = _myPos ?? const mapkit.Point(latitude: 55.751244, longitude: 37.618423);
-    mapWindow.map.move(
-      mapkit.CameraPosition(
-        startPoint,
-        zoom: 14,
-        azimuth: 0.0,  // Добавлен обязательный параметр
-        tilt: 0.0,     // Добавлен обязательный параметр
+    final initialPoint = (_storage.spots.isNotEmpty)
+        ? ymk.Point(
+      latitude: _storage.spots.last.lat,
+      longitude: _storage.spots.last.lng,
+    )
+        : const ymk.Point(latitude: 55.751244, longitude: 37.618423); // Москва
+
+    mw.map.move(
+      ymk.CameraPosition(
+        initialPoint,
+        zoom: (_storage.spots.isNotEmpty) ? 14 : 12,
+        azimuth: 0.0,
+        tilt: 0.0,
       ),
     );
-
-    // Создаем коллекцию объектов для карты
-    _mapObjectCollection = mapWindow.map.mapObjects.addCollection();
-
-    // Добавляем маркеры для всех точек
-    _addTreeSpotsMarkers();
-
-    setState(() => _isLoading = false);
   }
 
-  void _addTreeSpotsMarkers() {
-    for (final spot in _storage.spots) {
-      final placemark = _mapObjectCollection.addPlacemark()
-        ..geometry = mapkit.Point(latitude: spot.lat, longitude: spot.lng)
-        ..setText(spot.labels.isNotEmpty ? spot.labels.first.label : 'Дерево')
-        ..setTextStyle(
-          const mapkit.TextStyle(
-            size: 12.0,
-            color: Colors.black,
-            placement: mapkit.TextStylePlacement.Top,
-            offset: 5.0,
-          ),
-        )
-        ..userData = spot
-        ..addTapListener(_placemarkTapListener);
+  void _renderAll() {
+    final mw = _mapWindow;
+    if (mw == null) return;
+
+    _clearMap();
+    _moveCameraToInitial();
+
+    final map = mw.map;
+
+    // Иконка маркера из ассета. Убедись, что assets/marker.png есть в pubspec.yaml
+    final icon = yimg.ImageProvider.fromImageProvider(
+      const AssetImage('assets/marker.png'),
+    );
+
+    for (final s in _storage.spots) {
+      final pm = map.mapObjects.addPlacemark()
+        ..geometry = ymk.Point(latitude: s.lat, longitude: s.lng)
+        ..setIcon(icon)
+        ..setIconStyle(ymk.IconStyle(scale: 1.2))
+        ..userData = s.id;
+
+      pm.addTapListener(MapObjectTapListenerImpl(
+        onMapObjectTapped: (obj, p) {
+          _openSpotSheet(s);
+          return true;
+        },
+      ));
+
+      _objects.add(pm);
     }
   }
 
-  void _showTreeSpotInfo(TreeSpot spot) {
-    showDialog(
+  void _openSpotSheet(TreeSpot spot) {
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(spot.labels.isNotEmpty ? spot.labels.first.label : 'Дерево'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (spot.comment != null) Text(spot.comment!),
-            const SizedBox(height: 8),
-            Text('Широта: ${spot.lat.toStringAsFixed(6)}'),
-            Text('Долгота: ${spot.lng.toStringAsFixed(6)}'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Закрыть'),
-          ),
-        ],
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _SpotSheet(
+        spot: spot,
+        onCommentAdded: () async {
+          await _loadSpots();
+          if (!mounted) return;
+          Navigator.pop(context);
+          _openSpotSheet(
+            _storage.spots.firstWhere((e) => e.id == spot.id, orElse: () => spot),
+          );
+          _renderAll();
+        },
       ),
     );
-  }
-
-  void _updateMapObjects() {
-    // Очищаем старые маркеры
-    _mapObjectCollection.clear();
-    // Добавляем обновленные маркеры
-    _addTreeSpotsMarkers();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: Stack(
-            children: [
-              FlutterMapWidget(
-                onMapCreated: _createMapObjects,
-              ),
-              if (_isLoading)
-                const Center(
-                  child: CircularProgressIndicator(),
-                ),
-            ],
-          ),
-        ),
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Точек: ${_storage.spots.length}'),
-                IconButton(
-                  icon: const Icon(Icons.refresh),
-                  onPressed: () {
-                    setState(() {
-                      _isLoading = true;
-                    });
-                    _load().then((_) {
-                      if (_mapWindow != null) {
-                        _updateMapObjects();
-                      }
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+    return YandexMap(
+      onMapCreated: (mw) {
+        _mapWindow = mw;
+        _renderAll(); // после создания карты выставим камеру и маркеры
+      },
     );
   }
+}
 
+class _SpotSheet extends StatefulWidget {
+  const _SpotSheet({required this.spot, required this.onCommentAdded});
+  final TreeSpot spot;
+  final Future<void> Function() onCommentAdded;
 
-  void _onTreeSpotTap(TreeSpot spot, mapkit.Point point) {
-    final label = spot.labels.isNotEmpty ? spot.labels.first.label : 'Дерево';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Точка: $label\n(${point.latitude.toStringAsFixed(6)}, ${point.longitude.toStringAsFixed(6)})')),
+  @override
+  State<_SpotSheet> createState() => _SpotSheetState();
+}
+
+class _SpotSheetState extends State<_SpotSheet> {
+  final _commentCtrl = TextEditingController();
+  final _authorCtrl = TextEditingController(text: 'гость');
+  final _storage = StorageService();
+  bool _sending = false;
+
+  String _primaryLabel(TreeSpot s) =>
+      s.labels.isEmpty ? 'Без метки' : s.labels.first.label;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.spot;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        top: 8,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (s.imagePath != null && s.imagePath!.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  File(s.imagePath!),
+                  width: 84,
+                  height: 84,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(_primaryLabel(s), style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text('${s.lat.toStringAsFixed(6)}, ${s.lng.toStringAsFixed(6)}'),
+                if (s.comment != null && s.comment!.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(s.comment!),
+                ],
+              ]),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Комментарии', style: Theme.of(context).textTheme.titleSmall),
+          ),
+          const SizedBox(height: 8),
+          if (s.comments.isEmpty)
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Пока нет комментариев — будьте первым!'),
+            )
+          else
+            SizedBox(
+              height: 180,
+              child: ListView.separated(
+                itemCount: s.comments.length,
+                separatorBuilder: (_, __) => const Divider(height: 12),
+                itemBuilder: (_, i) {
+                  final c = s.comments[i];
+                  return ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(c.author),
+                    subtitle: Text(c.text),
+                    trailing: Text(
+                      '${c.createdAt.hour.toString().padLeft(2, '0')}:${c.createdAt.minute.toString().padLeft(2, '0')}',
+                    ),
+                  );
+                },
+              ),
+            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _authorCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'Ваше имя',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: _commentCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'Оставьте комментарий',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: _sending
+                    ? const SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+                    : const Icon(Icons.send),
+                onPressed: _sending
+                    ? null
+                    : () async {
+                  final text = _commentCtrl.text.trim();
+                  final author = _authorCtrl.text.trim();
+                  if (text.isEmpty) return;
+                  setState(() => _sending = true);
+                  await _storage.addComment(
+                    spotId: s.id,
+                    author: author.isEmpty ? 'гость' : author,
+                    text: text,
+                  );
+                  setState(() => _sending = false);
+                  _commentCtrl.clear();
+                  await widget.onCommentAdded();
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

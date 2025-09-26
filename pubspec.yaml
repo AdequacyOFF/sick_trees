@@ -1,4 +1,4 @@
-name: sick_threes
+name: Dendrotector
 description: "A starter Flutter app for camera + ML tree labeling + map comments"
 
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -16,6 +16,8 @@ dependencies:
   image_picker: ^1.1.2
   google_mlkit_image_labeling: ^0.12.0
   geolocator: ^12.0.0
+  latlong2: ^0.9.0
+  flutter_map: ^7.0.2
   path_provider: ^2.1.4
   yandex_maps_mapkit: ^4.22.0-beta
 
@@ -27,6 +29,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - lib/assets/marker.png
 
 
 
