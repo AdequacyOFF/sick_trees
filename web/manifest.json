@@ -1,6 +1,6 @@
 {
-    "name": "sick_trees",
-    "short_name": "sick_trees",
+    "name": "flutterapp",
+    "short_name": "flutterapp",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

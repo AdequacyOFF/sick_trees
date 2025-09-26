@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'screens/camera_screen.dart';
 import 'screens/gallery_screen.dart';
 import 'screens/map_screen.dart';
+import 'package:yandex_maps_mapkit/init.dart' as init;
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await init.initMapkit(
+      apiKey: 'ebd640e1-f658-4501-9d60-4995189398e5'
+  );
   runApp(const TreeTrackerApp());
 }
 

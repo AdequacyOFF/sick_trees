@@ -1,4 +1,4 @@
-# sick_trees
+# flutterapp
 
 A new Flutter project.
 
