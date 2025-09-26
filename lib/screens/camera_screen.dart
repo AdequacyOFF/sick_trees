@@ -2,7 +2,9 @@ import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import '../services/ml_service.dart';
-import 'result_screen.dart';
+import 'package:Dendrotector/screens/result_screen.dart';
+
+
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -44,7 +46,7 @@ class _CameraScreenState extends State<CameraScreen> {
     final labels = await _ml.analyzeImage(File(file.path));
     if (!mounted) return;
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => ResultScreen(imagePath: file.path, labels: labels),
+      builder: (_) => ResultScreen(imagePath: file.path, labels: labels, fromGallery: false),
     ));
   }
 

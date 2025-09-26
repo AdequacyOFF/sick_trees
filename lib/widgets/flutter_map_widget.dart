@@ -1,10 +1,11 @@
+// lib/widgets/flutter_map_widget.dart
 import 'package:flutter/material.dart';
-import 'package:yandex_maps_mapkit/mapkit.dart';
-import 'package:yandex_maps_mapkit/mapkit_factory.dart';
 import 'package:yandex_maps_mapkit/yandex_map.dart';
+import 'package:yandex_maps_mapkit/mapkit.dart' as ymk;
+import 'package:yandex_maps_mapkit/mapkit_factory.dart' show mapkit;
 
 final class FlutterMapWidget extends StatefulWidget {
-  final void Function(MapWindow) onMapCreated;
+  final void Function(ymk.MapWindow) onMapCreated;
   final VoidCallback? onMapDispose;
 
   const FlutterMapWidget({
@@ -14,86 +15,44 @@ final class FlutterMapWidget extends StatefulWidget {
   });
 
   @override
-  State<FlutterMapWidget> createState() => FlutterMapWidgetState();
+  State<FlutterMapWidget> createState() => _FlutterMapWidgetState();
 }
 
-final class FlutterMapWidgetState extends State<FlutterMapWidget> {
-  late final AppLifecycleListener _lifecycleListener;
-
-  MapWindow? _mapWindow;
-  bool _isMapkitActive = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: YandexMap(
-        onMapCreated: _onMapCreated,
-        platformViewType: PlatformViewType.Hybrid,
-      ),
-    );
-  }
+class _FlutterMapWidgetState extends State<FlutterMapWidget>
+    with WidgetsBindingObserver {
+  ymk.MapWindow? _mapWindow;
 
   @override
   void initState() {
     super.initState();
-    _startMapkit();
-
-    _lifecycleListener = AppLifecycleListener(
-      onResume: () {
-        _startMapkit();
-        _setMapTheme();
-      },
-      onInactive: () {
-        _stopMapkit();
-      },
-    );
+    WidgetsBinding.instance.addObserver(this);
+    // Сообщаем SDK, что карта появилась
+    mapkit.onStart();
   }
 
   @override
   void dispose() {
-    _stopMapkit();
-    _lifecycleListener.dispose();
     widget.onMapDispose?.call();
+    // Сообщаем SDK, что карта скрыта
+    mapkit.onStop();
+    WidgetsBinding.instance.removeObserver(this);
+    _mapWindow = null;
     super.dispose();
   }
 
-  void _startMapkit() {
-    if (!_isMapkitActive) {
-      _isMapkitActive = true;
-      mapkit.onStart();
-    }
+  void _applyNightMode() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    _mapWindow?.map.nightModeEnabled = isDark;
   }
 
-  void _stopMapkit() {
-    if (_isMapkitActive) {
-      _isMapkitActive = false;
-      mapkit.onStop();
-    }
+  @override
+  Widget build(BuildContext context) {
+    return YandexMap(
+      onMapCreated: (mw) {
+        _mapWindow = mw;
+        _applyNightMode();
+        widget.onMapCreated(mw);
+      },
+    );
   }
-
-  void _onMapCreated(MapWindow window) {
-    window.let((it) {
-      widget.onMapCreated(window);
-      _mapWindow = it;
-
-      it.map.logo.setAlignment(
-        const LogoAlignment(
-          LogoHorizontalAlignment.Left,
-          LogoVerticalAlignment.Bottom,
-        ),
-      );
-    });
-
-    _setMapTheme();
-  }
-
-  void _setMapTheme() {
-    _mapWindow?.map.nightModeEnabled =
-        Theme.of(context).brightness == Brightness.dark;
-  }
-}
-
-extension LetExtension<T> on T {
-  R let<R>(R Function(T it) block) => block(this);
 }

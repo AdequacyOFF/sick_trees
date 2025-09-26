@@ -1,6 +1,9 @@
+// lib/screens/gallery_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'location_picker_screen.dart';
+
 import '../services/ml_service.dart';
 import 'result_screen.dart';
 
@@ -15,19 +18,19 @@ class _GalleryScreenState extends State<GalleryScreen> {
   final _picker = ImagePicker();
   final _ml = MLService();
 
-  @override
-  void initState() {
-    super.initState();
-    _ml.init();
-  }
-
-  Future<void> _pick() async {
-    final x = await _picker.pickImage(source: ImageSource.gallery, maxWidth: 1600);
+  Future<void> _pickFromGallery() async {
+    final x = await _picker.pickImage(source: ImageSource.gallery);
     if (x == null) return;
+
     final labels = await _ml.analyzeImage(File(x.path));
     if (!mounted) return;
+
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => ResultScreen(imagePath: x.path, labels: labels),
+      builder: (_) => ResultScreen(
+        imagePath: x.path,
+        labels: labels,
+        fromGallery: true,
+      ),
     ));
   }
 
@@ -35,7 +38,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   Widget build(BuildContext context) {
     return Center(
       child: ElevatedButton.icon(
-        onPressed: _pick,
+        onPressed: _pickFromGallery,
         icon: const Icon(Icons.photo_library),
         label: const Text('Выбрать из галереи'),
       ),
