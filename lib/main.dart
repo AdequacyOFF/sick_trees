@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'screens/camera_screen.dart';
 import 'screens/gallery_screen.dart';
 import 'screens/map_screen.dart';
+import 'screens/image_upload_screen.dart';
 import 'package:yandex_maps_mapkit/init.dart' as init;
 //import 'package:yandex_maps_mapkit/mapkit_factory.dart' show mapkit;
 
@@ -27,6 +28,7 @@ class _TreeTrackerAppState extends State<TreeTrackerApp> {
     CameraScreen(),
     GalleryScreen(),
     MapScreen(),
+    ImageUploadScreen(),
   ];
 
   @override
@@ -46,6 +48,7 @@ class _TreeTrackerAppState extends State<TreeTrackerApp> {
             NavigationDestination(icon: Icon(Icons.photo_camera), label: "Камера"),
             NavigationDestination(icon: Icon(Icons.photo_library), label: "Галерея"),
             NavigationDestination(icon: Icon(Icons.map), label: "Карта"),
+            NavigationDestination(icon: Icon(Icons.map), label: "Загрузка"),
           ],
           onDestinationSelected: (i) => setState(() => _index = i),
         ),
