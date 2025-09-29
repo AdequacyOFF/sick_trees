@@ -20,6 +20,7 @@ dependencies:
   flutter_map: ^7.0.2
   path_provider: ^2.1.4
   yandex_maps_mapkit: ^4.22.0-beta
+  dio: ^5.0.0
 
 
 dev_dependencies:
