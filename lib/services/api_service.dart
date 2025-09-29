@@ -23,7 +23,7 @@ class ApiServiceWithRetry {
     ));
   }
 
-  Future<File?> uploadImage({
+  Future<File> uploadImage({
     required File imageFile,
     required Function(int sent, int total) onSendProgress,
     required Function(int received, int total) onReceiveProgress,
@@ -53,6 +53,8 @@ class ApiServiceWithRetry {
     } on DioException catch (e) {
       _handleDioError(e);
       rethrow;
+    } catch (e) {
+      throw Exception('Network error: $e');
     }
   }
 
@@ -62,7 +64,7 @@ class ApiServiceWithRetry {
     final filePath = '${directory.path}/$fileName';
     final File zipFile = File(filePath);
 
-    await zipFile.writeAsBytes(response.data);
+    await zipFile.writeAsBytes(response.data as List<int>);
     return zipFile;
   }
 
