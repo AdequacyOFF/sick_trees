@@ -9,7 +9,7 @@ import 'package:yandex_maps_mapkit/init.dart' as init;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await init.initMapkit(
-      apiKey: const String.fromEnvironment('ebd640e1-f658-4501-9d60-4995189398e5')
+      apiKey: 'ebd640e1-f658-4501-9d60-4995189398e5'
   );
   runApp(const TreeTrackerApp());
 }
