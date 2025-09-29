@@ -99,7 +99,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       final pm = map.mapObjects.addPlacemark()
         ..geometry = ymk.Point(latitude: s.lat, longitude: s.lng)
         ..setIcon(icon)
-        ..setIconStyle(ymk.IconStyle(scale: 1.2))
+        ..setIconStyle(const ymk.IconStyle(scale: 1.2))
         ..userData = s.id;
 
       pm.addTapListener(MapObjectTapListenerImpl(
@@ -114,23 +114,33 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   }
 
   void _openSpotSheet(TreeSpot spot) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => _SpotSheet(
-        spot: spot,
-        onCommentAdded: () async {
-          await _loadSpots();
-          if (!mounted) return;
-          Navigator.pop(context);
-          _openSpotSheet(
-            _storage.spots.firstWhere((e) => e.id == spot.id, orElse: () => spot),
-          );
-          _renderAll();
-        },
-      ),
-    );
+    try {
+      showModalBottomSheet(
+        context: context, // Теперь context доступен
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (_) => _SpotSheet(
+          spot: spot,
+          onCommentAdded: () async {
+            await _loadSpots(); // Теперь _loadSpots доступен
+            if (!mounted) return; // Теперь mounted доступен
+            Navigator.pop(context);
+            try {
+              final updatedSpot = _storage.spots.firstWhere( // Теперь _storage доступен
+                    (e) => e.id == spot.id,
+                orElse: () => spot,
+              );
+              _openSpotSheet(updatedSpot);
+            } catch (e) {
+              // Игнорируем ошибку если спот не найден
+            }
+            _renderAll();
+          },
+        ),
+      );
+    } catch (e) {
+      print('Error opening spot sheet: $e');
+    }
   }
 
   @override

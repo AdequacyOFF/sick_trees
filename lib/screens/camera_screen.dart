@@ -122,39 +122,50 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   Future<ymk.Point?> _getCoordinates() async {
-    // Предлагаем выбрать на карте или использовать GPS
-    final result = await showDialog<ymk.Point>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Выбор координат'),
-        content: const Text('Как определить местоположение?'),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              final point = await _getGpsPoint();
-              if (point != null) {
-                Navigator.pop(context, point);
-              }
-            },
-            child: const Text('Использовать GPS'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final point = await Navigator.push<ymk.Point>(
-                context,
-                MaterialPageRoute(builder: (_) => const LocationPickerScreen()),
-              );
-              if (point != null) {
-                Navigator.pop(context, point);
-              }
-            },
-            child: const Text('Выбрать на карте'),
-          ),
-        ],
-      ),
-    );
+    try {
+      // Предлагаем выбрать на карте или использовать GPS
+      final result = await showDialog<ymk.Point>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Выбор координат'),
+          content: const Text('Как определить местоположение?'),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                try {
+                  final point = await _getGpsPoint();
+                  Navigator.pop(context, point);
+                } catch (e) {
+                  Navigator.pop(context, null);
+                }
+              },
+              child: const Text('Использовать GPS'),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  final point = await Navigator.push<ymk.Point>(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LocationPickerScreen()),
+                  );
+                  Navigator.pop(context, point);
+                } catch (e) {
+                  Navigator.pop(context, null);
+                }
+              },
+              child: const Text('Выбрать на карте'),
+            ),
+          ],
+        ),
+      );
 
-    return result;
+      return result;
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка выбора координат: $e')),
+      );
+      return null;
+    }
   }
 
   Future<ymk.Point?> _getGpsPoint() async {

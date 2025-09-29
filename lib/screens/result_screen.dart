@@ -1,14 +1,13 @@
-// lib/screens/result_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:yandex_maps_mapkit/mapkit.dart' as ymk;
 
-import 'package:Dendrotector/services/ml_service.dart' show LabelResult; // единый импорт
-import 'package:Dendrotector/models/tree_spot.dart';
-import 'package:Dendrotector/services/storage_service.dart';
-import 'package:Dendrotector/screens/location_picker_screen.dart';
+import '../services/ml_service.dart' show LabelResult;
+import '../models/tree_spot.dart';
+import '../services/storage_service.dart';
+import '../screens/location_picker_screen.dart';
 
 class ResultScreen extends StatefulWidget {
   const ResultScreen({
@@ -42,28 +41,73 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   Future<void> _pickOnMap() async {
-    final res = await Navigator.push<ymk.Point>(
-      context,
-      MaterialPageRoute(builder: (_) => const LocationPickerScreen()),
-    );
-    if (res != null) setState(() => _pickedPoint = res);
+    try {
+      final res = await Navigator.push<ymk.Point>(
+        context,
+        MaterialPageRoute(builder: (_) => const LocationPickerScreen()),
+      );
+      if (res != null) {
+        setState(() => _pickedPoint = res);
+      }
+    } catch (e) {
+      setState(() => _error = 'Ошибка выбора места: $e');
+    }
   }
 
-  Future<ymk.Point> _getGpsPoint() async {
-    var perm = await Geolocator.checkPermission();
-    if (perm == LocationPermission.denied) {
-      perm = await Geolocator.requestPermission();
+  Future<ymk.Point?> _getGpsPoint() async {
+    try {
+      // Проверяем разрешения
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          setState(() => _error = 'Доступ к GPS запрещен');
+          return null;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        setState(() => _error = 'Доступ к GPS заблокирован навсегда. Разрешите в настройках устройства');
+        return null;
+      }
+
+      // Получаем текущую позицию с таймаутом
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.best,
+        timeLimit: const Duration(seconds: 10),
+      ).timeout(const Duration(seconds: 15));
+
+      return ymk.Point(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+    } catch (e) {
+      setState(() => _error = 'Ошибка GPS: $e');
+      return null;
     }
-    final pos = await Geolocator.getCurrentPosition();
-    return ymk.Point(latitude: pos.latitude, longitude: pos.longitude);
   }
 
   Future<void> _save() async {
-    setState(() { _saving = true; _error = null; });
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
 
     try {
-      // если точка на карте не выбрана — берём GPS (старое поведение)
-      final point = _pickedPoint ?? await _getGpsPoint();
+      ymk.Point point;
+
+      if (_pickedPoint != null) {
+        // Используем выбранную на карте точку
+        point = _pickedPoint!;
+      } else {
+        // Пытаемся получить GPS координаты
+        final gpsPoint = await _getGpsPoint();
+        if (gpsPoint == null) {
+          setState(() => _saving = false);
+          return; // Не продолжаем если GPS недоступен
+        }
+        point = gpsPoint;
+      }
 
       final spot = TreeSpot(
         id: _uuid.v4(),
@@ -77,7 +121,9 @@ class _ResultScreenState extends State<ResultScreen> {
       );
 
       await _storage.add(spot);
+
       if (!mounted) return;
+
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Сохранено на карте')),
@@ -152,7 +198,17 @@ class _ResultScreenState extends State<ResultScreen> {
             ),
             const SizedBox(height: 12),
             if (_error != null)
-              Text(_error!, style: const TextStyle(color: Colors.red)),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
             const SizedBox(height: 4),
             SizedBox(
               width: double.infinity,

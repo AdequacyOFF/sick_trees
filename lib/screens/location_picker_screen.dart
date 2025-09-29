@@ -1,24 +1,18 @@
-// lib/screens/location_picker_screen.dart
 import 'package:flutter/material.dart';
 import 'package:yandex_maps_mapkit/yandex_map.dart';
 import 'package:yandex_maps_mapkit/mapkit.dart' as ymk;
-import 'package:yandex_maps_mapkit/mapkit_factory.dart' show mapkit; // onStart/onStop
-import 'package:yandex_maps_mapkit/image.dart' as yimg; // иконка из ассета
+import 'package:yandex_maps_mapkit/mapkit_factory.dart' show mapkit;
+import 'package:yandex_maps_mapkit/image.dart' as yimg;
 
-/// Экран выбора точки на карте Яндекс.
-/// Тап по карте ставит маркер, кнопка снизу возвращает выбранный Point.
 class LocationPickerScreen extends StatefulWidget {
   const LocationPickerScreen({
     super.key,
     this.initialPoint =
-    const ymk.Point(latitude: 55.751244, longitude: 37.618423), // Москва
+    const ymk.Point(latitude: 55.751244, longitude: 37.618423),
     this.initialZoom = 12.0,
   });
 
-  /// Начальная позиция камеры.
   final ymk.Point initialPoint;
-
-  /// Начальный зум.
   final double initialZoom;
 
   @override
@@ -30,19 +24,10 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   ymk.PlacemarkMapObject? _pin;
   ymk.Point? _picked;
 
-  // Слушатель тапов по карте
-  late final ymk.MapInputListener _tapListener = _MapTapListener(
-    onTap: (map, point) {
-      _picked = point;
-      _renderPin(point);
-    },
-  );
-
   @override
   void initState() {
     super.initState();
-    // Важно: запуск сетевого стека SDK, иначе тайлы могут не загрузиться
-    mapkit.onStart();
+    // Убираем onStart отсюда - он будет в onMapCreated
   }
 
   @override
@@ -56,13 +41,22 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     super.dispose();
   }
 
+  // Слушатель тапов по карте
+  late final ymk.MapInputListener _tapListener = _MapTapListener(
+    onTap: (map, point) {
+      _picked = point;
+      _renderPin(point);
+    },
+  );
+
   void _moveInitialCamera() {
     final mw = _mapWindow;
     if (mw == null) return;
 
+    // Правильное создание CameraPosition - без named parameter 'target'
     mw.map.move(
       ymk.CameraPosition(
-        widget.initialPoint,
+        widget.initialPoint, // Первый позиционный параметр - точка
         zoom: widget.initialZoom,
         azimuth: 0,
         tilt: 0,
@@ -71,7 +65,8 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   }
 
   void _renderPin(ymk.Point point) {
-    final map = _mapWindow!.map;
+    final map = _mapWindow?.map;
+    if (map == null) return;
 
     // Удаляем предыдущий маркер
     if (_pin != null) {
@@ -79,25 +74,25 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       _pin = null;
     }
 
-    // Иконка маркера из ассета (если ассета нет — будет системный пин)
-    yimg.ImageProvider? icon;
-    try {
-      icon = yimg.ImageProvider.fromImageProvider(
-        const AssetImage('assets/marker.png'),
-      );
-    } catch (_) {
-      icon = null;
-    }
-
+    // Создаем новый маркер
     final pm = map.mapObjects.addPlacemark()
       ..geometry = point
-      ..setIconStyle(ymk.IconStyle(scale: 1.2)); // делаем маркер заметнее
+      ..setIconStyle(const ymk.IconStyle(scale: 1.2));
 
-    if (icon != null) {
+    // Пробуем установить иконку из ассета, но не критично если не получится
+    try {
+      final icon = yimg.ImageProvider.fromImageProvider(
+        const AssetImage('assets/marker.png'),
+      );
       pm.setIcon(icon);
+    } catch (_) {
+      // Используем стандартный пин если ассет не найден
     }
 
     _pin = pm;
+
+    // Обновляем состояние чтобы показать координаты
+    setState(() {});
   }
 
   void _confirm() {
@@ -120,7 +115,6 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
             IconButton(
               tooltip: 'Сбросить выбор',
               onPressed: () {
-                // Сброс маркера и выбранной точки
                 final map = _mapWindow?.map;
                 if (_pin != null && map != null) {
                   map.mapObjects.remove(_pin!);
@@ -139,6 +133,8 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
           YandexMap(
             onMapCreated: (mw) {
               _mapWindow = mw;
+              // Запускаем MapKit при создании карты
+              mapkit.onStart();
               _moveInitialCamera();
               mw.map.addInputListener(_tapListener);
             },
@@ -153,12 +149,10 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
               children: [
                 if (_picked != null)
                   Container(
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     margin: const EdgeInsets.only(bottom: 8),
                     decoration: BoxDecoration(
-                      color:
-                      Theme.of(context).colorScheme.surface.withOpacity(0.9),
+                      color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: const [
                         BoxShadow(
