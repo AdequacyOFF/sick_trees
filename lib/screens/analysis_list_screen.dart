@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import '../services/analysis_storage_service.dart';
 import 'analysis_detail_screen.dart';
+import 'package:yandex_maps_mapkit/mapkit.dart' as ymk;
 
 class AnalysisListScreen extends StatefulWidget {
   const AnalysisListScreen({super.key});
@@ -25,6 +26,17 @@ class _AnalysisListScreenState extends State<AnalysisListScreen> {
     setState(() => _loading = true);
     _analyses = await _analysisStorage.getAnalyses();
     setState(() => _loading = false);
+  }
+
+  void _showOnMap(AnalysisItem analysis) {
+    // Переходим на карту и передаем координаты для выделения
+    Navigator.of(context).pushNamed(
+      '/map',
+      arguments: {
+        'highlightSpot': ymk.Point(latitude: analysis.lat, longitude: analysis.lng),
+        'spotId': analysis.id,
+      },
+    );
   }
 
   @override
@@ -61,6 +73,9 @@ class _AnalysisListScreenState extends State<AnalysisListScreen> {
             analysis: analysis,
             onTap: () => _openAnalysisDetail(analysis),
             onDelete: () => _deleteAnalysis(analysis.id),
+            onShowOnMap: analysis.status == 'completed'
+                ? () => _showOnMap(analysis)
+                : null,
           );
         },
       ),
@@ -103,11 +118,13 @@ class _AnalysisListItem extends StatelessWidget {
   final AnalysisItem analysis;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback? onShowOnMap;
 
   const _AnalysisListItem({
     required this.analysis,
     required this.onTap,
     required this.onDelete,
+    this.onShowOnMap,
   });
 
   @override
@@ -128,9 +145,20 @@ class _AnalysisListItem extends StatelessWidget {
             _buildStatus(),
           ],
         ),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete, color: Colors.red),
-          onPressed: onDelete,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (onShowOnMap != null && analysis.status == 'completed')
+              IconButton(
+                icon: const Icon(Icons.map, color: Colors.blue),
+                onPressed: onShowOnMap,
+                tooltip: 'Показать на карте',
+              ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: onDelete,
+            ),
+          ],
         ),
         onTap: onTap,
       ),

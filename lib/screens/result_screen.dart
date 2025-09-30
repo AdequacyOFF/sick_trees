@@ -7,7 +7,9 @@ import 'package:yandex_maps_mapkit/mapkit.dart' as ymk;
 import '../services/ml_service.dart' show LabelResult;
 import '../models/tree_spot.dart';
 import '../services/storage_service.dart';
+import '../services/analysis_storage_service.dart';
 import '../screens/location_picker_screen.dart';
+import '../screens/analysis_upload_screen.dart';
 
 class ResultScreen extends StatefulWidget {
   const ResultScreen({
@@ -28,6 +30,7 @@ class ResultScreen extends StatefulWidget {
 class _ResultScreenState extends State<ResultScreen> {
   final _commentCtrl = TextEditingController();
   final _storage = StorageService();
+  final _analysisStorage = AnalysisStorageService();
   final _uuid = const Uuid();
 
   ymk.Point? _pickedPoint;
@@ -124,12 +127,87 @@ class _ResultScreenState extends State<ResultScreen> {
 
       if (!mounted) return;
 
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Сохранено на карте')),
-      );
+      // Показываем диалог выбора действия после сохранения
+      await _showActionDialog(point);
     } catch (e) {
       setState(() => _error = 'Не удалось сохранить: $e');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _showActionDialog(ymk.Point point) async {
+    final result = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Точка сохранена'),
+        content: const Text('Что вы хотите сделать дальше?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 1),
+            child: const Text('Вернуться на карту'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 2),
+            child: const Text('Проанализировать фото'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 3),
+            child: const Text('Остаться здесь'),
+          ),
+        ],
+      ),
+    );
+
+    switch (result) {
+      case 1:
+      // Вернуться на карту
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        break;
+      case 2:
+      // Проанализировать фото
+        await _sendForAnalysis(point);
+        break;
+      case 3:
+      // Остаться на этом экране - просто показываем сообщение
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Точка сохранена на карте')),
+        );
+        break;
+      default:
+        Navigator.pop(context);
+    }
+  }
+
+  Future<void> _sendForAnalysis(ymk.Point point) async {
+    setState(() => _saving = true);
+
+    try {
+      // Создаем запись анализа
+      final analysisId = await _analysisStorage.createAnalysis(
+        imagePath: widget.imagePath,
+        lat: point.latitude,
+        lng: point.longitude,
+      );
+
+      if (!mounted) return;
+
+      // Переходим на экран загрузки анализа
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => AnalysisUploadScreen(
+            analysisId: analysisId,
+            imageFile: File(widget.imagePath),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = 'Ошибка при создании анализа: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -209,7 +287,8 @@ class _ResultScreenState extends State<ResultScreen> {
                   style: const TextStyle(color: Colors.red),
                 ),
               ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 16),
+            // Кнопка только для сохранения точки
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -218,9 +297,64 @@ class _ResultScreenState extends State<ResultScreen> {
                 label: Text(_saving ? 'Сохраняем…' : 'Сохранить точку'),
               ),
             ),
+            const SizedBox(height: 8),
+            // Дополнительная кнопка для прямого анализа без сохранения
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _saving ? null : _analyzeOnly,
+                icon: const Icon(Icons.analytics),
+                label: const Text('Только проанализировать фото'),
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _analyzeOnly() async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    try {
+      ymk.Point point;
+
+      if (_pickedPoint != null) {
+        point = _pickedPoint!;
+      } else {
+        final gpsPoint = await _getGpsPoint();
+        if (gpsPoint == null) {
+          setState(() => _saving = false);
+          return;
+        }
+        point = gpsPoint;
+      }
+
+      // Создаем запись анализа без сохранения точки
+      final analysisId = await _analysisStorage.createAnalysis(
+        imagePath: widget.imagePath,
+        lat: point.latitude,
+        lng: point.longitude,
+      );
+
+      if (!mounted) return;
+
+      // Переходим на экран загрузки анализа
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => AnalysisUploadScreen(
+            analysisId: analysisId,
+            imageFile: File(widget.imagePath),
+          ),
+        ),
+      );
+    } catch (e) {
+      setState(() => _error = 'Ошибка при создании анализа: $e');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 }
