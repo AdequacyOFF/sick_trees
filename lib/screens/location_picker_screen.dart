@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:yandex_maps_mapkit/yandex_map.dart';
 import 'package:yandex_maps_mapkit/mapkit.dart' as ymk;
 import 'package:yandex_maps_mapkit/mapkit_factory.dart' show mapkit;
-import 'package:yandex_maps_mapkit/image.dart' as yimg;
 
 class LocationPickerScreen extends StatefulWidget {
   const LocationPickerScreen({
@@ -27,7 +26,6 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   @override
   void initState() {
     super.initState();
-    // Убираем onStart отсюда - он будет в onMapCreated
   }
 
   @override
@@ -36,7 +34,6 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     if (map != null) {
       map.removeInputListener(_tapListener);
     }
-    // Остановка SDK при уходе со страницы
     mapkit.onStop();
     super.dispose();
   }
@@ -53,10 +50,9 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     final mw = _mapWindow;
     if (mw == null) return;
 
-    // Правильное создание CameraPosition - без named parameter 'target'
     mw.map.move(
       ymk.CameraPosition(
-        widget.initialPoint, // Первый позиционный параметр - точка
+        widget.initialPoint,
         zoom: widget.initialZoom,
         azimuth: 0,
         tilt: 0,
@@ -74,25 +70,18 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       _pin = null;
     }
 
-    // Создаем новый маркер
-    final pm = map.mapObjects.addPlacemark()
-      ..geometry = point
-      ..setIconStyle(const ymk.IconStyle(scale: 1.2));
-
-    // Пробуем установить иконку из ассета, но не критично если не получится
+    // Создаем новый маркер - УПРОЩЕННАЯ ВЕРСИЯ БЕЗ СТИЛЕЙ
     try {
-      final icon = yimg.ImageProvider.fromImageProvider(
-        const AssetImage('assets/marker.png'),
-      );
-      pm.setIcon(icon);
-    } catch (_) {
-      // Используем стандартный пин если ассет не найден
+      final pm = map.mapObjects.addPlacemark()
+        ..geometry = point;
+
+      // Убираем setIconStyle чтобы избежать краша
+      _pin = pm;
+
+      setState(() {});
+    } catch (e) {
+      print('Error creating pin: $e');
     }
-
-    _pin = pm;
-
-    // Обновляем состояние чтобы показать координаты
-    setState(() {});
   }
 
   void _confirm() {
@@ -133,13 +122,11 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
           YandexMap(
             onMapCreated: (mw) {
               _mapWindow = mw;
-              // Запускаем MapKit при создании карты
               mapkit.onStart();
               _moveInitialCamera();
               mw.map.addInputListener(_tapListener);
             },
           ),
-          // Панель подтверждения
           Positioned(
             left: 16,
             right: 16,

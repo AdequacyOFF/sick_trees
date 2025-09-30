@@ -90,26 +90,30 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
     final map = mw.map;
 
-    // Иконка маркера из ассета. Убедись, что assets/marker.png есть в pubspec.yaml
-    final icon = yimg.ImageProvider.fromImageProvider(
-      const AssetImage('assets/marker.png'),
-    );
-
     for (final s in _storage.spots) {
-      final pm = map.mapObjects.addPlacemark()
-        ..geometry = ymk.Point(latitude: s.lat, longitude: s.lng)
-        ..setIcon(icon)
-        ..setIconStyle(const ymk.IconStyle(scale: 1.2))
-        ..userData = s.id;
+      try {
+        final pm = map.mapObjects.addPlacemark()
+          ..geometry = ymk.Point(latitude: s.lat, longitude: s.lng)
+          ..userData = s.id;
 
-      pm.addTapListener(MapObjectTapListenerImpl(
-        onMapObjectTapped: (obj, p) {
-          _openSpotSheet(s);
-          return true;
-        },
-      ));
+        // Убираем проблемные операции с иконками
+        // final icon = yimg.ImageProvider.fromImageProvider(
+        //   const AssetImage('assets/marker.png'),
+        // );
+        // pm.setIcon(icon);
+        // pm.setIconStyle(ymk.IconStyle(scale: 1.2));
 
-      _objects.add(pm);
+        pm.addTapListener(MapObjectTapListenerImpl(
+          onMapObjectTapped: (obj, p) {
+            _openSpotSheet(s);
+            return true;
+          },
+        ));
+
+        _objects.add(pm);
+      } catch (e) {
+        print('Error creating marker for spot ${s.id}: $e');
+      }
     }
   }
 
