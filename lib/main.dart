@@ -5,6 +5,7 @@ import 'screens/gallery_screen.dart';
 import 'screens/map_screen.dart';
 import 'screens/analysis_list_screen.dart';
 import 'package:yandex_maps_mapkit/init.dart' as init;
+//import 'package:yandex_maps_mapkit/mapkit_factory.dart' show mapkit;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -38,6 +38,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     super.dispose();
   }
 
+
   // Слушатель тапов по карте
   late final ymk.MapInputListener _tapListener = _MapTapListener(
     onTap: (map, point) {
@@ -45,7 +46,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       _renderPin(point);
     },
   );
-
+  
   void _moveInitialCamera() {
     final mw = _mapWindow;
     if (mw == null) return;
@@ -69,6 +70,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       map.mapObjects.remove(_pin!);
       _pin = null;
     }
+
 
     // Создаем новый маркер - УПРОЩЕННАЯ ВЕРСИЯ БЕЗ СТИЛЕЙ
     try {
@@ -136,6 +138,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
               children: [
                 if (_picked != null)
                   Container(
+
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     margin: const EdgeInsets.only(bottom: 8),
                     decoration: BoxDecoration(
@@ -180,3 +183,4 @@ class _MapTapListener implements ymk.MapInputListener {
   @override
   void onMapLongTap(ymk.Map map, ymk.Point point) {}
 }
+

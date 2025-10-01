@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 
 class ApiServiceWithRetry {
   static const String baseUrl = 'https://corporative-charissa-continuingly.ngrok-free.dev/api/task';
+
   static const int maxRetries = 3;
 
   late Dio _dio;
@@ -30,6 +31,7 @@ class ApiServiceWithRetry {
     CancelToken? cancelToken,
   }) async {
     try {
+
       // Проверяем размер файла
       final fileLength = await imageFile.length();
       if (fileLength == 0) {
@@ -58,6 +60,7 @@ class ApiServiceWithRetry {
         ),
       );
 
+
       // Проверяем ответ
       if (response.statusCode != 200) {
         throw Exception('Server error: ${response.statusCode}');
@@ -85,6 +88,7 @@ class ApiServiceWithRetry {
   }
 
   Future<File> _saveZipFile(Response response) async {
+
     try {
       final directory = await getApplicationDocumentsDirectory();
       final fileName = _getZipFileName(response) ?? 'analysis_${DateTime.now().millisecondsSinceEpoch}.zip';
@@ -116,6 +120,7 @@ class ApiServiceWithRetry {
     } else if (e.type == DioExceptionType.receiveTimeout) {
       throw Exception('Server is taking too long to respond.');
     } else if (e.type == DioExceptionType.badResponse) {
+
       throw Exception('Server error: ${e.response?.statusCode} - ${e.response?.statusMessage}');
     } else if (e.type == DioExceptionType.cancel) {
       throw Exception('Request was cancelled');

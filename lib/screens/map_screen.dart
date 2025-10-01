@@ -277,6 +277,25 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       print('Error opening spot sheet: $e');
     }
   }
+}
+
+class _SpotSheet extends StatefulWidget {
+  const _SpotSheet({required this.spot, required this.onCommentAdded});
+  final TreeSpot spot;
+  final Future<void> Function() onCommentAdded;
+
+  @override
+  State<_SpotSheet> createState() => _SpotSheetState();
+}
+
+class _SpotSheetState extends State<_SpotSheet> {
+  final _commentCtrl = TextEditingController();
+  final _authorCtrl = TextEditingController(text: 'гость');
+  final _storage = StorageService();
+  bool _sending = false;
+
+  String _primaryLabel(TreeSpot s) =>
+      s.labels.isEmpty ? 'Без метки' : s.labels.first.label;
 
   @override
   Widget build(BuildContext context) {
