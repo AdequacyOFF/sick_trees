@@ -8,6 +8,7 @@ IDE - _Android Studio_
 
 **Варианты сборки:**
 - [x] Android
+- [ ] Экосистема Huawei (_в работе_)
 - [ ] IOS (_в работе_)
 - [ ] Windows
 - [ ] Web
