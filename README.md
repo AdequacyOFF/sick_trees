@@ -3,6 +3,7 @@
 ## Мобильное приложение экосистемы "Dendrotector"
 
 Код - _dart_+_flutter_
+
 IDE - _Android Studio_
 
 **Варианты сборки:**
