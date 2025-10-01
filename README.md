@@ -8,7 +8,7 @@ IDE - _Android Studio_
 
 **Варианты сборки:**
 - [x] Android
-- [ ] IOS
+- [ ] IOS (_в работе_)
 - [ ] Windows
 - [ ] Web
 - [ ] Desktop
