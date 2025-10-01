@@ -24,8 +24,6 @@ class _AnalysisUploadScreenState extends State<AnalysisUploadScreen> {
   final _zipService = ZipService();
 
   bool _isLoading = false;
-  double _uploadProgress = 0.0;
-  double _downloadProgress = 0.0;
   String _status = '';
 
   @override
@@ -34,40 +32,58 @@ class _AnalysisUploadScreenState extends State<AnalysisUploadScreen> {
     _startUpload();
   }
 
+  @override
+  void dispose() {
+    _apiService.cancel();
+    super.dispose();
+  }
+
   Future<void> _startUpload() async {
+    if (_isLoading) return;
+
     setState(() {
       _isLoading = true;
-      _status = 'Подготовка к загрузке...';
+      _status = 'Подготовка...';
     });
 
     try {
-      _status = 'Отправка изображения на сервер...';
+      print('=== STARTING UPLOAD PROCESS ===');
+      print('Analysis ID: ${widget.analysisId}');
+      print('Image path: ${widget.imageFile.path}');
 
+      setState(() => _status = 'Отправка фото на сервер...');
+
+      // 1. ОТПРАВКА ФОТО НА СЕРВЕР
       final zipFile = await _apiService.uploadImage(
         imageFile: widget.imageFile,
         onSendProgress: (sent, total) {
-          setState(() {
-            _uploadProgress = sent / total;
-          });
+          final progress = (sent / total * 100).toInt();
+          if (mounted) {
+            setState(() => _status = 'Отправка: $progress%');
+          }
         },
         onReceiveProgress: (received, total) {
-          setState(() {
-            _downloadProgress = received / total;
-          });
+          final progress = (received / total * 100).toInt();
+          if (mounted) {
+            setState(() => _status = 'Получение результатов: $progress%');
+          }
         },
       );
 
-      // Проверяем, что zipFile не null
       if (zipFile == null) {
-        throw Exception('Не удалось получить файл с сервера');
+        throw Exception('Не удалось отправить фото на сервер');
       }
 
-      _status = 'Обработка результатов...';
+      print('ZIP file received: ${zipFile.path}');
 
-      // Разархивируем и анализируем результаты
+      if (!mounted) return;
+      setState(() => _status = 'Обработка результатов...');
+
+      // 2. ОБРАБОТКА ОТВЕТА ОТ СЕРВЕРА
       final results = await _zipService.extractAndAnalyze(zipFile);
+      print('Results processed: ${results.keys}');
 
-      // Сохраняем результаты
+      // 3. СОХРАНЕНИЕ РЕЗУЛЬТАТОВ
       await _analysisStorage.updateAnalysisStatus(
         widget.analysisId,
         'completed',
@@ -75,26 +91,23 @@ class _AnalysisUploadScreenState extends State<AnalysisUploadScreen> {
         results: results,
       );
 
-      _status = 'Анализ завершен!';
-
       if (!mounted) return;
 
-      // Показываем успех и возвращаемся
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Анализ успешно завершен')),
-      );
+      print('=== UPLOAD COMPLETED SUCCESSFULLY ===');
 
-      Navigator.of(context).pop();
+      // Успешное завершение
+      _showSuccessAndReturn();
 
     } catch (e) {
-      _status = 'Ошибка: $e';
-      await _analysisStorage.updateAnalysisStatus(widget.analysisId, 'error');
+      print('=== UPLOAD FAILED: $e ===');
 
-      if (!mounted) return;
+      if (mounted) {
+        setState(() => _status = 'Ошибка: ${e.toString()}');
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка анализа: $e')),
-      );
+        await _analysisStorage.updateAnalysisStatus(widget.analysisId, 'error');
+
+        _showErrorAndOption(e.toString());
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -102,70 +115,110 @@ class _AnalysisUploadScreenState extends State<AnalysisUploadScreen> {
     }
   }
 
+  void _showSuccessAndReturn() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Анализ успешно завершен!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+
+    // Возвращаемся через секунду, чтобы пользователь увидел сообщение
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) Navigator.of(context).pop();
+    });
+  }
+
+  void _showErrorAndOption(String error) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Ошибка отправки'),
+        content: Text('Не удалось отправить фото: $error'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _startUpload();
+            },
+            child: const Text('Повторить'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Анализ изображения'),
-        leading: IconButton(
+        leading: _isLoading
+            ? null
+            : IconButton(
           icon: const Icon(Icons.close),
-          onPressed: _isLoading ? null : () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Превью изображения
-            Container(
-              height: 150,
-              width: 150,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Превью изображения
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  image: DecorationImage(
+                    image: FileImage(widget.imageFile),
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
-              child: Image.file(widget.imageFile, fit: BoxFit.cover),
-            ),
 
-            const SizedBox(height: 32),
+              const SizedBox(height: 32),
 
-            // Индикатор загрузки
-            if (_isLoading) ...[
-              CircularProgressIndicator(
-                value: _uploadProgress > 0 ? _uploadProgress : null,
-              ),
-              const SizedBox(height: 16),
-              Text('Отправка: ${(_uploadProgress * 100).toStringAsFixed(1)}%'),
-
-              if (_downloadProgress > 0) ...[
+              // Индикатор загрузки
+              if (_isLoading) ...[
+                const CircularProgressIndicator(),
                 const SizedBox(height: 16),
-                LinearProgressIndicator(value: _downloadProgress),
-                Text('Загрузка результата: ${(_downloadProgress * 100).toStringAsFixed(1)}%'),
+              ] else if (_status.contains('Ошибка')) ...[
+                const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                const SizedBox(height: 16),
               ],
-            ],
 
-            const SizedBox(height: 16),
-
-            // Статус
-            Text(
-              _status,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-
-            const SizedBox(height: 32),
-
-            // Кнопка отмены
-            if (_isLoading)
-              OutlinedButton(
-                onPressed: () {
-                  _apiService.cancel();
-                  Navigator.pop(context);
-                },
-                child: const Text('Отменить'),
+              // Статус
+              Text(
+                _status,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-          ],
+
+              const SizedBox(height: 32),
+
+              // Кнопка отмены/повтора
+              if (_isLoading)
+                OutlinedButton(
+                  onPressed: () {
+                    _apiService.cancel();
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Отменить'),
+                )
+              else if (_status.contains('Ошибка'))
+                ElevatedButton(
+                  onPressed: _startUpload,
+                  child: const Text('Повторить отправку'),
+                ),
+            ],
+          ),
         ),
       ),
     );
