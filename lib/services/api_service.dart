@@ -3,7 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 
 class ApiServiceWithRetry {
-  static const String baseUrl = 'https://corporative-charissa-continuingly.ngrok-free.dev/api/task';
+  static const String baseUrl = 'http://10.0.2.2:1234/api/task';
   static const int maxRetries = 3;
 
   late Dio _dio;
