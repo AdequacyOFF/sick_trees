@@ -75,12 +75,10 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       final pm = map.mapObjects.addPlacemark()
         ..geometry = point;
 
-      // Убираем setIconStyle чтобы избежать краша
       _pin = pm;
 
       setState(() {});
     } catch (e) {
-      print('Error creating pin: $e');
     }
   }
 

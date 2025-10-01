@@ -29,7 +29,6 @@ class _AnalysisListScreenState extends State<AnalysisListScreen> {
   }
 
   void _showOnMap(AnalysisItem analysis) {
-    // Переходим на карту и передаем координаты для выделения
     Navigator.of(context).pushNamed(
       '/map',
       arguments: {

@@ -104,7 +104,6 @@ class ZipService {
         return jsonDecode(content);
       }
     } catch (e) {
-      print('Error parsing report: $e');
     }
     return null;
   }

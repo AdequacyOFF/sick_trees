@@ -1,9 +1,10 @@
+import 'dart:developer';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 
 class ApiServiceWithRetry {
-  static const String baseUrl = 'http://10.0.2.2:1234/api/task';
+  static const String baseUrl = 'http://194.85.249.95:58000/';
   static const int maxRetries = 3;
 
   late Dio _dio;
@@ -16,7 +17,6 @@ class ApiServiceWithRetry {
       receiveTimeout: const Duration(seconds: 60),
     ));
 
-    // Добавляем исправленный интерцептор для повторных попыток
     _dio.interceptors.add(RetryInterceptorOnError(
       dio: _dio,
       retries: maxRetries,
@@ -30,24 +30,21 @@ class ApiServiceWithRetry {
     CancelToken? cancelToken,
   }) async {
     try {
-      // Проверяем размер файла
       final fileLength = await imageFile.length();
       if (fileLength == 0) {
         throw Exception('Файл пустой');
       }
-
-      print('Starting upload: ${imageFile.path}');
-      print('File size: $fileLength bytes');
+      log(imageFile.path);
 
       FormData formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(
+        'image': await MultipartFile.fromFile(
           imageFile.path,
           filename: _getFileName(imageFile.path),
         ),
       });
 
       Response response = await _dio.post(
-        '/generate',
+        '/detect?top_k=3&disease_score=0.47',
         data: formData,
         onSendProgress: onSendProgress,
         onReceiveProgress: onReceiveProgress,
@@ -58,7 +55,6 @@ class ApiServiceWithRetry {
         ),
       );
 
-      // Проверяем ответ
       if (response.statusCode != 200) {
         throw Exception('Server error: ${response.statusCode}');
       }
@@ -67,19 +63,15 @@ class ApiServiceWithRetry {
         throw Exception('Empty response from server');
       }
 
-      print('Upload successful, saving ZIP file...');
       return await _saveZipFile(response);
 
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
-        print('Request cancelled by user');
         return null;
       }
-      print('Dio error: ${e.type} - ${e.message}');
       _handleDioError(e);
       rethrow;
     } catch (e) {
-      print('Upload error: $e');
       rethrow;
     }
   }
@@ -92,20 +84,16 @@ class ApiServiceWithRetry {
       final File zipFile = File(filePath);
 
       final data = response.data as List<int>;
-      print('Saving ZIP file: $filePath, size: ${data.length} bytes');
 
       await zipFile.writeAsBytes(data);
 
-      // Проверяем, что файл сохранился
       if (await zipFile.exists()) {
         final savedSize = await zipFile.length();
-        print('ZIP file saved successfully: $savedSize bytes');
         return zipFile;
       } else {
         throw Exception('Failed to save ZIP file');
       }
     } catch (e) {
-      print('Error saving ZIP file: $e');
       rethrow;
     }
   }
@@ -136,7 +124,6 @@ class ApiServiceWithRetry {
         return matches?.group(1);
       }
     } catch (e) {
-      print('Error parsing filename: $e');
     }
     return null;
   }
@@ -148,7 +135,7 @@ class ApiServiceWithRetry {
   }
 }
 
-// ИСПРАВЛЕННЫЙ интерцептор для повторных попыток
+
 class RetryInterceptorOnError extends Interceptor {
   final Dio dio;
   final int retries;
@@ -157,15 +144,12 @@ class RetryInterceptorOnError extends Interceptor {
 
   @override
   Future<void> onError(DioException err, ErrorInterceptorHandler handler) async {
-    // Проверяем, нужно ли повторять запрос
     if (_shouldRetry(err) && _getRetryCount(err) < retries) {
       final retryCount = _getRetryCount(err);
-      print('Retrying request (attempt ${retryCount + 1}/$retries)...');
 
       await Future.delayed(const Duration(seconds: 1));
 
       try {
-        // Создаем новую копию RequestOptions для повторной попытки
         final options = Options(
           method: err.requestOptions.method,
           headers: err.requestOptions.headers,
@@ -185,21 +169,16 @@ class RetryInterceptorOnError extends Interceptor {
         handler.resolve(response);
         return;
       } catch (e) {
-        // Увеличиваем счетчик повторных попыток
         err.requestOptions.extra['retry_count'] = retryCount + 1;
 
-        // Если это последняя попытка, передаем ошибку дальше
         if (_getRetryCount(err) >= retries) {
           handler.next(err);
         } else {
-          // Продолжаем цепочку обработки ошибок для следующей попытки
           handler.next(err);
         }
         return;
       }
     }
-
-    // Если повторять не нужно, передаем ошибку дальше
     handler.next(err);
   }
 

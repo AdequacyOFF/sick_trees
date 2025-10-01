@@ -15,7 +15,6 @@ void main() async {
     );
     runApp(const TreeTrackerApp());
   } catch (e) {
-    print('Error initializing Yandex Maps: $e');
     runApp(const TreeTrackerApp());
   }
 }
@@ -37,7 +36,6 @@ class _TreeTrackerAppState extends State<TreeTrackerApp> {
     AnalysisListScreen(),
   ];
 
-  // Цвета для iOS-стиля
   final _iosThemes = {
     Brightness.light: _IosThemeData(
       backgroundColor: const Color(0xFFF2F2F7),
@@ -118,7 +116,6 @@ class _TreeTrackerAppState extends State<TreeTrackerApp> {
     );
   }
 
-  // Создание iOS-подобного AppBar
   PreferredSizeWidget _buildIosAppBar(
       BuildContext context,
       String title,
@@ -151,7 +148,6 @@ class _TreeTrackerAppState extends State<TreeTrackerApp> {
     );
   }
 
-  // Создание iOS-подобной навигационной панели
   Widget _buildIosNavigationBar(BuildContext context, _IosThemeData theme) {
     return Container(
       decoration: BoxDecoration(
@@ -201,7 +197,6 @@ class _TreeTrackerAppState extends State<TreeTrackerApp> {
     );
   }
 
-  // Создание iOS-подобного пункта навигации
   NavigationDestination _buildIosNavigationDestination({
     required IconData icon,
     required IconData selectedIcon,
@@ -223,7 +218,6 @@ class _TreeTrackerAppState extends State<TreeTrackerApp> {
     );
   }
 
-  // Тема для светлого режима
   ThemeData _buildLightTheme() {
     return ThemeData(
       colorScheme: ColorScheme.fromSeed(
@@ -298,7 +292,6 @@ class _TreeTrackerAppState extends State<TreeTrackerApp> {
     );
   }
 
-  // Тема для темного режима
   ThemeData _buildDarkTheme() {
     return ThemeData(
       colorScheme: ColorScheme.fromSeed(
@@ -374,7 +367,6 @@ class _TreeTrackerAppState extends State<TreeTrackerApp> {
   }
 }
 
-// Вспомогательный класс для хранения iOS-цветов
 class _IosThemeData {
   final Color backgroundColor;
   final Color barBackgroundColor;

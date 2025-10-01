@@ -53,7 +53,6 @@ class AnalysisDetailScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Исходное изображение
           if (analysis.imagePath != null && File(analysis.imagePath!).existsSync())
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -76,7 +75,6 @@ class AnalysisDetailScreen extends StatelessWidget {
               ],
             ),
 
-          // BBOX изображение (только одно)
           if (results?['bboxImage'] != null && File(results!['bboxImage']).existsSync())
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,7 +97,6 @@ class AnalysisDetailScreen extends StatelessWidget {
               ],
             ),
 
-          // Результаты анализа по instance
           const Text(
             'Результаты анализа:',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -120,7 +117,6 @@ class AnalysisDetailScreen extends StatelessWidget {
     final overlayPath = instance['overlay'] as String?;
     final instanceName = instance['name'] as String? ?? '';
 
-    // Создаем список виджетов для Column
     final List<Widget> columnChildren = [
       Text(
         instanceName.toUpperCase(),
@@ -129,7 +125,6 @@ class AnalysisDetailScreen extends StatelessWidget {
       const SizedBox(height: 12),
     ];
 
-    // Добавляем overlay изображение если есть
     if (overlayPath != null && File(overlayPath).existsSync()) {
       columnChildren.addAll([
         ClipRRect(
@@ -145,7 +140,6 @@ class AnalysisDetailScreen extends StatelessWidget {
       ]);
     }
 
-    // Добавляем теги из report.json
     if (report.isNotEmpty) {
       columnChildren.addAll([
         const Text(

@@ -1,4 +1,3 @@
-// lib/models/tree_spot.dart
 import '../services/ml_service.dart' show LabelResult;
 import 'comment.dart';
 
@@ -6,8 +5,8 @@ class TreeSpot {
   final String id;
   final double lat;
   final double lng;
-  final String? comment;     // заметка автора точки
-  final String? imagePath;   // локальный путь к фото
+  final String? comment;
+  final String? imagePath;
   final List<LabelResult> labels;
   final DateTime createdAt;
   final List<Comment> comments;

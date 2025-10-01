@@ -225,11 +225,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
         _objects.add(pm);
       } catch (e) {
-        print('Error creating marker for spot ${spot.id}: $e');
       }
     }
 
-    // Если есть выделенная точка, создаем для нее специальный маркер
     if (_highlightedPoint != null) {
       try {
         final highlightPm = map.mapObjects.addPlacemark()
@@ -238,10 +236,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
         _objects.add(highlightPm);
 
-        // Перемещаем камеру к выделенной точке
         _moveCameraToPoint(_highlightedPoint!);
       } catch (e) {
-        print('Error creating highlighted marker: $e');
       }
     } else if (_filteredSpots.isNotEmpty && _searchQuery.isEmpty) {
       _moveCameraToInitial();
@@ -274,7 +270,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         ),
       );
     } catch (e) {
-      print('Error opening spot sheet: $e');
     }
   }
 

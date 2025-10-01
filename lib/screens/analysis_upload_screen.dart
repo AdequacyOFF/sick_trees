@@ -47,13 +47,8 @@ class _AnalysisUploadScreenState extends State<AnalysisUploadScreen> {
     });
 
     try {
-      print('=== STARTING UPLOAD PROCESS ===');
-      print('Analysis ID: ${widget.analysisId}');
-      print('Image path: ${widget.imageFile.path}');
-
       setState(() => _status = 'Отправка фото на сервер...');
 
-      // 1. ОТПРАВКА ФОТО НА СЕРВЕР
       final zipFile = await _apiService.uploadImage(
         imageFile: widget.imageFile,
         onSendProgress: (sent, total) {
@@ -73,17 +68,11 @@ class _AnalysisUploadScreenState extends State<AnalysisUploadScreen> {
       if (zipFile == null) {
         throw Exception('Не удалось отправить фото на сервер');
       }
-
-      print('ZIP file received: ${zipFile.path}');
-
       if (!mounted) return;
       setState(() => _status = 'Обработка результатов...');
 
-      // 2. ОБРАБОТКА ОТВЕТА ОТ СЕРВЕРА
       final results = await _zipService.extractAndAnalyze(zipFile);
-      print('Results processed: ${results.keys}');
 
-      // 3. СОХРАНЕНИЕ РЕЗУЛЬТАТОВ
       await _analysisStorage.updateAnalysisStatus(
         widget.analysisId,
         'completed',
@@ -93,13 +82,9 @@ class _AnalysisUploadScreenState extends State<AnalysisUploadScreen> {
 
       if (!mounted) return;
 
-      print('=== UPLOAD COMPLETED SUCCESSFULLY ===');
-
-      // Успешное завершение
       _showSuccessAndReturn();
 
     } catch (e) {
-      print('=== UPLOAD FAILED: $e ===');
 
       if (mounted) {
         setState(() => _status = 'Ошибка: ${e.toString()}');
