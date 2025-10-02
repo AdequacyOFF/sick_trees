@@ -23,7 +23,9 @@
         android:label="sick_trees"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
-
+        <meta-data
+            android:name="com.yandex.mapkit.apikey"
+            android:value="ebd640e1-f658-4501-9d60-4995189398e5" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

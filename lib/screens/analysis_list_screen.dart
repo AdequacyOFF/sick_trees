@@ -1,7 +1,9 @@
+// lib/screens/analysis_list_screen.dart
 import 'package:flutter/material.dart';
 import 'dart:io';
 import '../services/analysis_storage_service.dart';
 import 'analysis_detail_screen.dart';
+import 'settings_screen.dart'; // Добавляем импорт
 import 'package:yandex_maps_mapkit/mapkit.dart' as ymk;
 
 class AnalysisListScreen extends StatefulWidget {
@@ -38,6 +40,13 @@ class _AnalysisListScreenState extends State<AnalysisListScreen> {
     );
   }
 
+  // Добавляем метод для перехода к настройкам
+  void _openSettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -62,21 +71,34 @@ class _AnalysisListScreenState extends State<AnalysisListScreen> {
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: _loadAnalyses,
-      child: ListView.builder(
-        itemCount: _analyses.length,
-        itemBuilder: (context, index) {
-          final analysis = _analyses[index];
-          return _AnalysisListItem(
-            analysis: analysis,
-            onTap: () => _openAnalysisDetail(analysis),
-            onDelete: () => _deleteAnalysis(analysis.id),
-            onShowOnMap: analysis.status == 'completed'
-                ? () => _showOnMap(analysis)
-                : null,
-          );
-        },
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('История анализов'),
+        actions: [
+          // Добавляем кнопку настроек в AppBar
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: _openSettings,
+            tooltip: 'Настройки',
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _loadAnalyses,
+        child: ListView.builder(
+          itemCount: _analyses.length,
+          itemBuilder: (context, index) {
+            final analysis = _analyses[index];
+            return _AnalysisListItem(
+              analysis: analysis,
+              onTap: () => _openAnalysisDetail(analysis),
+              onDelete: () => _deleteAnalysis(analysis.id),
+              onShowOnMap: analysis.status == 'completed'
+                  ? () => _showOnMap(analysis)
+                  : null,
+            );
+          },
+        ),
       ),
     );
   }
@@ -113,6 +135,7 @@ class _AnalysisListScreenState extends State<AnalysisListScreen> {
   }
 }
 
+// Класс _AnalysisListItem остается без изменений...
 class _AnalysisListItem extends StatelessWidget {
   final AnalysisItem analysis;
   final VoidCallback onTap;

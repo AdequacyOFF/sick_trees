@@ -1,20 +1,38 @@
+// lib/services/api_service.dart
 import 'dart:developer';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
+import 'settings_service.dart';
 
 class ApiServiceWithRetry {
-  static const String baseUrl = 'http://194.85.249.95:58000/';
+  late String baseUrl;
   static const int maxRetries = 3;
 
   late Dio _dio;
   CancelToken _cancelToken = CancelToken();
+  final SettingsService _settingsService;
 
-  ApiServiceWithRetry() {
+  ApiServiceWithRetry() : _settingsService = SettingsService() {
+    _updateDio();
+  }
+
+  void _updateDio() {
+    baseUrl = _settingsService.baseUrl;
+
     _dio = Dio(BaseOptions(
       baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 60),
+    ));
+
+    _dio.interceptors.add(LogInterceptor(
+      request: true,
+      requestHeader: true,
+      requestBody: false,
+      responseHeader: true,
+      responseBody: false,
+      logPrint: (object) => log(object.toString()),
     ));
 
     _dio.interceptors.add(RetryInterceptorOnError(
@@ -29,12 +47,14 @@ class ApiServiceWithRetry {
     required Function(int received, int total) onReceiveProgress,
     CancelToken? cancelToken,
   }) async {
+    _updateDio(); // Обновляем настройки перед каждым запросом
+
     try {
       final fileLength = await imageFile.length();
       if (fileLength == 0) {
         throw Exception('Файл пустой');
       }
-      log(imageFile.path);
+      log('Uploading image: ${imageFile.path}, size: $fileLength bytes');
 
       FormData formData = FormData.fromMap({
         'image': await MultipartFile.fromFile(
@@ -43,15 +63,20 @@ class ApiServiceWithRetry {
         ),
       });
 
+      // Используем настройки из SettingsService
+      final topK = _settingsService.topK;
+      final diseaseScore = _settingsService.diseaseScore;
+
+      log('Sending request with params: top_k=$topK, disease_score=$diseaseScore');
+
       Response response = await _dio.post(
-        '/detect?top_k=3&disease_score=0.47',
+        '/detect?top_k=$topK&disease_score=$diseaseScore',
         data: formData,
         onSendProgress: onSendProgress,
         onReceiveProgress: onReceiveProgress,
         cancelToken: cancelToken ?? _cancelToken,
         options: Options(
           responseType: ResponseType.bytes,
-          headers: {'Content-Type': 'multipart/form-data'},
         ),
       );
 
@@ -89,6 +114,7 @@ class ApiServiceWithRetry {
 
       if (await zipFile.exists()) {
         final savedSize = await zipFile.length();
+        log('ZIP file saved: $filePath, size: $savedSize bytes');
         return zipFile;
       } else {
         throw Exception('Failed to save ZIP file');
@@ -124,6 +150,7 @@ class ApiServiceWithRetry {
         return matches?.group(1);
       }
     } catch (e) {
+      log('Error parsing zip filename: $e');
     }
     return null;
   }
@@ -132,9 +159,10 @@ class ApiServiceWithRetry {
     if (!_cancelToken.isCancelled) {
       _cancelToken.cancel('User cancelled');
     }
+    // Создаем новый CancelToken для следующих запросов
+    _cancelToken = CancelToken();
   }
 }
-
 
 class RetryInterceptorOnError extends Interceptor {
   final Dio dio;

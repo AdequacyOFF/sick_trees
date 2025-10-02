@@ -22,6 +22,21 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget>
     with WidgetsBindingObserver {
   ymk.MapWindow? _mapWindow;
 
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        mapkit.onStart();
+        break;
+      case AppLifecycleState.paused:
+        mapkit.onStop();
+        break;
+      default:
+        break;
+    }
+  }
+
   @override
   void initState() {
     super.initState();

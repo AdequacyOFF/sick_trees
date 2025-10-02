@@ -1,7 +1,9 @@
+// lib/services/zip_service.dart
 import 'dart:io';
 import 'dart:convert';
 import 'package:archive/archive.dart';
 import 'package:path_provider/path_provider.dart';
+import '../models/analysis_results.dart';
 
 class ZipService {
   Future<Map<String, dynamic>> extractAndAnalyze(File zipFile) async {
@@ -15,42 +17,58 @@ class ZipService {
     final results = <String, dynamic>{};
     final instances = <Map<String, dynamic>>[];
 
+    // Извлекаем все файлы
     for (final file in archive) {
       final filename = file.name;
 
-      if (filename.startsWith('out/') && file.isFile) {
+      // Пропускаем директории
+      if (file.isFile) {
         final localPath = '${extractDir.path}/$filename';
         final localFile = File(localPath);
+
         await localFile.create(recursive: true);
         await localFile.writeAsBytes(file.content);
+      }
+    }
 
-        // Анализируем structure instance папок
-        if (filename.contains('instance_')) {
-          final instanceData = await _parseInstance(extractDir.path, filename);
+    // Парсим summary.json
+    final summaryFile = File('${extractDir.path}/detections/summary.json');
+    if (await summaryFile.exists()) {
+      try {
+        final summaryContent = await summaryFile.readAsString();
+        final summaryJson = jsonDecode(summaryContent);
+        results['summary'] = AnalysisSummary.fromJson(summaryJson);
+        print('Found summary: ${summaryJson['instances']} instances');
+      } catch (e) {
+        print('Error parsing summary.json: $e');
+      }
+    } else {
+      print('summary.json not found at ${summaryFile.path}');
+    }
+
+    // Обрабатываем каждую instance папку
+    final detectionsDir = Directory('${extractDir.path}/detections');
+    if (await detectionsDir.exists()) {
+      final entities = await detectionsDir.list().toList();
+
+      for (final entity in entities) {
+        if (entity is Directory && entity.path.contains('instance_')) {
+          final instanceData = await _parseInstance(entity);
           if (instanceData != null) {
             instances.add(instanceData);
           }
         }
+      }
+    } else {
+      print('detections directory not found at ${detectionsDir.path}');
 
-        // Ищем bbox изображение (только один раз)
-        if (filename.contains('bbox') && !results.containsKey('bboxImage')) {
-          results['bboxImage'] = localPath;
-        }
-
-        // Ищем overlay изображения
-        if (filename.contains('overlay')) {
-          final instanceNum = _extractInstanceNumber(filename);
-          if (instanceNum != null) {
-            results['overlay_$instanceNum'] = localPath;
-          }
-        }
-
-        // Парсим report.json
-        if (filename.endsWith('report.json')) {
-          final reportData = await _parseReport(localPath);
-          final instanceNum = _extractInstanceNumber(filename);
-          if (instanceNum != null && reportData != null) {
-            results['report_$instanceNum'] = reportData;
+      // Альтернативный подход: ищем instance папки в корне
+      final entities = await extractDir.list().toList();
+      for (final entity in entities) {
+        if (entity is Directory && entity.path.contains('instance_')) {
+          final instanceData = await _parseInstance(entity);
+          if (instanceData != null) {
+            instances.add(instanceData);
           }
         }
       }
@@ -59,58 +77,65 @@ class ZipService {
     results['instances'] = instances;
     results['extractPath'] = extractDir.path;
 
+    print('Extracted ${instances.length} instances from archive');
     return results;
   }
 
-  Future<Map<String, dynamic>?> _parseInstance(String basePath, String filename) async {
-    final parts = filename.split('/');
-    if (parts.length < 2) return null;
-
-    final instanceDir = parts[1]; // instance_00, instance_01, etc.
-    final instancePath = '$basePath/${parts.sublist(0, 2).join('/')}';
-
+  Future<Map<String, dynamic>?> _parseInstance(Directory instanceDir) async {
+    final instanceName = instanceDir.path.split('/').last;
     final instanceData = <String, dynamic>{
-      'name': instanceDir,
-      'path': instancePath,
+      'name': instanceName,
+      'path': instanceDir.path,
     };
 
-    // Ищем файлы в instance папке
-    final instanceDirFile = Directory(instancePath);
-    if (await instanceDirFile.exists()) {
-      final files = await instanceDirFile.list().toList();
+    try {
+      final files = await instanceDir.list().toList();
 
       for (final file in files) {
         if (file is File) {
-          final name = file.uri.pathSegments.last;
-          if (name.contains('bbox')) {
-            instanceData['bbox'] = file.path;
-          } else if (name.contains('overlay')) {
+          final filename = file.uri.pathSegments.last;
+
+          if (filename == 'overlay.png') {
             instanceData['overlay'] = file.path;
-          } else if (name.endsWith('report.json')) {
-            instanceData['report'] = await _parseReport(file.path);
+            print('Found overlay for $instanceName: ${file.path}');
+          } else if (filename == 'disease.png') {
+            instanceData['disease'] = file.path;
+            print('Found disease image for $instanceName: ${file.path}');
+          } else if (filename == 'report.json') {
+            try {
+              final content = await file.readAsString();
+              final reportJson = jsonDecode(content);
+              instanceData['report'] = TreeReport.fromJson(reportJson);
+              print('Parsed report for $instanceName: ${reportJson['species']}');
+            } catch (e) {
+              print('Error parsing report.json for $instanceName: $e');
+            }
           }
         }
       }
-    }
 
-    return instanceData;
-  }
-
-  Future<Map<String, dynamic>?> _parseReport(String reportPath) async {
-    try {
-      final file = File(reportPath);
-      if (await file.exists()) {
-        final content = await file.readAsString();
-        return jsonDecode(content);
+      // Проверяем, что есть обязательные данные
+      if (instanceData.containsKey('report') && instanceData.containsKey('overlay')) {
+        return instanceData;
+      } else {
+        print('Missing required data for $instanceName. Has report: ${instanceData.containsKey('report')}, Has overlay: ${instanceData.containsKey('overlay')}');
       }
     } catch (e) {
+      print('Error processing instance $instanceName: $e');
     }
+
     return null;
   }
 
-  int? _extractInstanceNumber(String filename) {
-    final regex = RegExp(r'instance_(\d+)');
-    final match = regex.firstMatch(filename);
-    return match != null ? int.tryParse(match.group(1)!) : null;
+  // Вспомогательный метод для отладки - показывает структуру архива
+  Future<void> debugArchiveStructure(File zipFile) async {
+    final bytes = await zipFile.readAsBytes();
+    final archive = ZipDecoder().decodeBytes(bytes);
+
+    print('=== Archive Structure ===');
+    for (final file in archive) {
+      print('${file.isFile ? 'FILE' : 'DIR '}: ${file.name} (${file.size} bytes)');
+    }
+    print('=========================');
   }
 }

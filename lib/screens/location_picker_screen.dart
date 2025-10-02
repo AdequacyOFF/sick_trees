@@ -22,11 +22,19 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   ymk.MapWindow? _mapWindow;
   ymk.PlacemarkMapObject? _pin;
   ymk.Point? _picked;
+  late final ymk.MapInputListener _tapListener;
 
   @override
   void initState() {
     super.initState();
+    _tapListener = _MapTapListener( // Инициализация в initState
+      onTap: (map, point) {
+        _picked = point;
+        _renderPin(point);
+      },
+    );
   }
+
 
   @override
   void dispose() {
@@ -37,14 +45,6 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     mapkit.onStop();
     super.dispose();
   }
-
-  // Слушатель тапов по карте
-  late final ymk.MapInputListener _tapListener = _MapTapListener(
-    onTap: (map, point) {
-      _picked = point;
-      _renderPin(point);
-    },
-  );
 
   void _moveInitialCamera() {
     final mw = _mapWindow;
@@ -120,7 +120,6 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
           YandexMap(
             onMapCreated: (mw) {
               _mapWindow = mw;
-              mapkit.onStart();
               _moveInitialCamera();
               mw.map.addInputListener(_tapListener);
             },

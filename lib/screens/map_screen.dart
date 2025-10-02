@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-
+import'dart:developer';
 // Яндекс карта
 import 'package:yandex_maps_mapkit/yandex_map.dart';
 // Типы SDK: Point, MapWindow, IconStyle и т.д.
@@ -11,6 +11,11 @@ import 'package:yandex_maps_mapkit/mapkit_factory.dart' show mapkit;
 import '../models/tree_spot.dart';
 import '../services/storage_service.dart';
 import '../listeners/tap_listener.dart';
+import 'dart:math' as math;
+import 'package:yandex_maps_mapkit/image.dart' as image_provider;
+import 'package:yandex_maps_mapkit/ui_view.dart';
+
+
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -29,10 +34,19 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   // Для выделения маркера при переходе из других экранов
   ymk.Point? _highlightedPoint;
   String? _highlightedSpotId;
+  final List<ymk.MapObjectTapListener> _listeners = [];
+
+  late final imageProvider;
+
 
   @override
   void initState() {
     super.initState();
+    try {
+      imageProvider = image_provider.ImageProvider.fromImageProvider(const AssetImage('assets/marker.png'));
+    } catch (e) {
+      log('Не удалось загрузить кастомную иконку: $e');
+    }
     WidgetsBinding.instance.addObserver(this);
     mapkit.onStart();
     _loadSpots();
@@ -51,6 +65,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    for (final listener in _listeners) {
+    }
+    _listeners.clear();
     _searchController.dispose();
     _clearMap();
     WidgetsBinding.instance.removeObserver(this);
@@ -213,7 +230,14 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       try {
         final pm = map.mapObjects.addPlacemark()
           ..geometry = ymk.Point(latitude: spot.lat, longitude: spot.lng)
-          ..userData = spot.id;
+          ..userData = spot.id
+          ..setIcon(imageProvider)
+          ..setIconStyle(
+          const ymk.IconStyle(
+          anchor: math.Point(0.5, 1.0),
+          scale: 2.0,
+    ),
+    );
 
         // Добавляем слушатель тапов
         pm.addTapListener(MapObjectTapListenerImpl(

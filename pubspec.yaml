@@ -22,6 +22,8 @@ dependencies:
   yandex_maps_mapkit: ^4.22.0-beta
   dio: ^5.0.0
   archive: ^3.3.7
+  shared_preferences: ^2.5.3
+  uuid: ^4.5.1
 
 
 dev_dependencies:
@@ -32,7 +34,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - lib/assets/marker.png
+    - assets/marker.png
 
 
 
