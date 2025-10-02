@@ -240,13 +240,20 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     ),
     );
 
-        // Добавляем слушатель тапов
-        pm.addTapListener(MapObjectTapListenerImpl(
+        // Создаем слушатель тапов
+        final tapListener = MapObjectTapListenerImpl(
           onMapObjectTapped: (obj, p) {
             _openSpotSheet(spot);
             return true;
           },
-        ));
+        );
+
+        // Добавляем слушатель к метке
+        pm.addTapListener(tapListener);
+
+        // Сохраняем слушатель в списке, чтобы не был удален сборщиком мусора
+        _listeners.add(tapListener);
+
 
         _objects.add(pm);
       } catch (e) {
