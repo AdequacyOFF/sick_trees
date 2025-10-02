@@ -2,7 +2,7 @@
 
 ### Mobile-app
 
-https://github.com/AdequacyOFF/sick_trees/tree/presentation
+https://github.com/AdequacyOFF/sick_trees
 
 ### Server-app
 
