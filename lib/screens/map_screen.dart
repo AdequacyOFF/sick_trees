@@ -235,7 +235,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           ..setIconStyle(
           const ymk.IconStyle(
           anchor: math.Point(0.5, 1.0),
-          scale: 2.0,
+          scale: 0.15,
     ),
     );
 
