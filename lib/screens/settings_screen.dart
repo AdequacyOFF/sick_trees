@@ -203,8 +203,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     TextField(
                       controller: _topKController,
                       decoration: const InputDecoration(
-                        labelText: 'Top K',
-                        hintText: 'Количество вариантов видов деревьев (1-10)',
+                        labelText: 'Количество предполагаемых пород',
+                        hintText: '1 - 5',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.format_list_numbered),
                       ),
@@ -216,8 +216,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     TextField(
                       controller: _diseaseScoreController,
                       decoration: const InputDecoration(
-                        labelText: 'Disease Score Threshold',
-                        hintText: 'Порог вероятности для заболеваний (0.0-1.0)',
+                        labelText: 'Порог определения болезни',
+                        hintText: '0.0 - 1.0',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.medical_services),
                       ),
@@ -248,15 +248,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(height: 16),
 
-            OutlinedButton.icon(
-              onPressed: _resetToDefaults,
-              icon: const Icon(Icons.restore),
-              label: const Text('Сбросить к значениям по умолчанию'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-            ),
-
             // Текущие значения по умолчанию
             const SizedBox(height: 24),
             Card(
@@ -275,8 +266,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     SizedBox(height: 8),
                     Text('Base URL: http://194.85.249.95:58000/'),
-                    Text('Top K: 3'),
-                    Text('Disease Score: 0.47'),
+                    Text('Количество предполагаемых пород: 3'),
+                    Text('Порог определения болезни: 0.47'),
                   ],
                 ),
               ),

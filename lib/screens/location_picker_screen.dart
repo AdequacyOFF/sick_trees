@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'dart:developer';
+import 'dart:math' as math;
 import 'package:yandex_maps_mapkit/yandex_map.dart';
 import 'package:yandex_maps_mapkit/mapkit.dart' as ymk;
 import 'package:yandex_maps_mapkit/mapkit_factory.dart' show mapkit;
+import 'package:yandex_maps_mapkit/image.dart' as image_provider;
 
 class LocationPickerScreen extends StatefulWidget {
   const LocationPickerScreen({
     super.key,
-    this.initialPoint =
-    const ymk.Point(latitude: 55.751244, longitude: 37.618423),
+    this.initialPoint = const ymk.Point(
+      latitude: 55.751244,
+      longitude: 37.618423,
+    ),
     this.initialZoom = 12.0,
   });
 
@@ -23,18 +28,26 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   ymk.PlacemarkMapObject? _pin;
   ymk.Point? _picked;
   late final ymk.MapInputListener _tapListener;
+  late final imageProvider;
 
   @override
   void initState() {
     super.initState();
-    _tapListener = _MapTapListener( // Инициализация в initState
+    try {
+      imageProvider = image_provider.ImageProvider.fromImageProvider(
+        const AssetImage('assets/marker.png'),
+      );
+    } catch (e) {
+      log('Не удалось загрузить кастомную иконку: $e');
+    }
+    _tapListener = _MapTapListener(
+      // Инициализация в initState
       onTap: (map, point) {
         _picked = point;
         _renderPin(point);
       },
     );
   }
-
 
   @override
   void dispose() {
@@ -69,17 +82,19 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       map.mapObjects.remove(_pin!);
       _pin = null;
     }
-
-    // Создаем новый маркер - УПРОЩЕННАЯ ВЕРСИЯ БЕЗ СТИЛЕЙ
+    //Ставим новый
     try {
       final pm = map.mapObjects.addPlacemark()
-        ..geometry = point;
+        ..geometry = point
+        ..setIcon(imageProvider)
+        ..setIconStyle(
+          const ymk.IconStyle(anchor: math.Point(0.5, 1.0), scale: 0.15),
+        );
 
       _pin = pm;
 
       setState(() {});
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   void _confirm() {
@@ -133,16 +148,18 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
               children: [
                 if (_picked != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     margin: const EdgeInsets.only(bottom: 8),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surface.withOpacity(0.9),
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: const [
-                        BoxShadow(
-                          blurRadius: 6,
-                          color: Colors.black26,
-                        ),
+                        BoxShadow(blurRadius: 6, color: Colors.black26),
                       ],
                     ),
                     child: Text(
@@ -169,6 +186,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
 
 class _MapTapListener implements ymk.MapInputListener {
   final void Function(ymk.Map, ymk.Point) onTap;
+
   _MapTapListener({required this.onTap});
 
   @override

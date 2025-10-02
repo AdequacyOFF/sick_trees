@@ -1,6 +1,7 @@
 import 'dart:io';
+import 'dart:developer';
 import 'package:flutter/material.dart';
-import'dart:developer';
+
 // Яндекс карта
 import 'package:yandex_maps_mapkit/yandex_map.dart';
 // Типы SDK: Point, MapWindow, IconStyle и т.д.
