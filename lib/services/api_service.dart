@@ -44,7 +44,7 @@ class ApiServiceWithRetry {
   Future<File?> uploadImage({
     required File imageFile,
     required Function(int sent, int total) onSendProgress,
-    required Function(int received, int total) onReceiveProgress,
+    required Function(int received, int rTotal) onReceiveProgress,
     CancelToken? cancelToken,
   }) async {
     _updateDio(); // Обновляем настройки перед каждым запросом

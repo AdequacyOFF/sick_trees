@@ -16,7 +16,11 @@ import 'dart:math' as math;
 import 'package:yandex_maps_mapkit/image.dart' as image_provider;
 import 'package:yandex_maps_mapkit/ui_view.dart';
 
-
+import '../managers/camera_manager.dart';
+import '../widgets/map_control_button.dart';
+import '../widgets/flutter_map_widget.dart';
+import '../managers/permission_manager.dart';
+import '../managers/dialogs_factory.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -24,13 +28,23 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
+class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver
+  implements ymk.UserLocationObjectListener {
   final _storage = StorageService();
   final _searchController = TextEditingController();
-  ymk.MapWindow? _mapWindow;
   final List<ymk.MapObject> _objects = [];
   List<TreeSpot> _filteredSpots = [];
   String _searchQuery = '';
+
+  late final _dialogsFactory = DialogsFactory(_showDialog);
+  late final _permissionManager = PermissionManager(_dialogsFactory);
+  late final _locationManager = mapkit.createLocationManager();
+
+  late final CameraManager _cameraManager;
+  late final ymk.UserLocationLayer _userLocationLayer;
+  late final AppLifecycleListener _lifecycleListener;
+
+  late final ymk.MapWindow _mapWindow;
 
   // Для выделения маркера при переходе из других экранов
   ymk.Point? _highlightedPoint;
@@ -39,18 +53,31 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   late final imageProvider;
 
+  late final arrowIconImageProvider =
+  image_provider.ImageProvider.fromImageProvider(
+      const AssetImage("assets/user_arrow.png"));
+  late final iconImageProvider = image_provider.ImageProvider.fromImageProvider(
+      const AssetImage("assets/icon.png"));
+  late final pinIconImageProvider =
+  image_provider.ImageProvider.fromImageProvider(
+      const AssetImage("assets/icon_pin.png"));
 
   @override
   void initState() {
     super.initState();
+    _lifecycleListener = AppLifecycleListener(
+        onResume: () {
+          _requestPermissionsIfNeeded();
+        },
+    );
     try {
       imageProvider = image_provider.ImageProvider.fromImageProvider(const AssetImage('assets/marker.png'));
     } catch (e) {
       log('Не удалось загрузить кастомную иконку: $e');
     }
     WidgetsBinding.instance.addObserver(this);
-    mapkit.onStart();
     _loadSpots();
+    _requestPermissionsIfNeeded();
   }
 
   @override
@@ -66,8 +93,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    for (final listener in _listeners) {
-    }
+    _lifecycleListener.dispose();
     _listeners.clear();
     _searchController.dispose();
     _clearMap();
@@ -86,8 +112,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   }
 
   void _clearMap() {
-    final map = _mapWindow?.map;
-    if (map == null) return;
+    final map = _mapWindow.map;
     for (final obj in _objects) {
       map.mapObjects.remove(obj);
     }
@@ -96,7 +121,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   void _moveCameraToInitial() {
     final mw = _mapWindow;
-    if (mw == null) return;
 
     final initialPoint = (_filteredSpots.isNotEmpty)
         ? ymk.Point(
@@ -117,7 +141,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   void _moveCameraToSpot(TreeSpot spot) {
     final mw = _mapWindow;
-    if (mw == null) return;
 
     // Упрощенная версия без анимации
     mw.map.move(
@@ -132,7 +155,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   void _moveCameraToPoint(ymk.Point point) {
     final mw = _mapWindow;
-    if (mw == null) return;
 
     mw.map.move(
       ymk.CameraPosition(
@@ -205,7 +227,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       final centerLng = (minLng + maxLng) / 2;
 
       final mw = _mapWindow;
-      if (mw != null) {
+
         mw.map.move(
           ymk.CameraPosition(
             ymk.Point(latitude: centerLat, longitude: centerLng),
@@ -214,13 +236,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             tilt: 0.0,
           ),
         );
-      }
     }
   }
 
   void _renderAll() {
     final mw = _mapWindow;
-    if (mw == null) return;
 
     _clearMap();
 
@@ -365,11 +385,37 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           Expanded(
             child: Stack(
               children: [
-                YandexMap(
+                FlutterMapWidget(
                   onMapCreated: (mw) {
                     _mapWindow = mw;
+                    _cameraManager = CameraManager(mw, _locationManager)
+                      ..start();
+
+                    _userLocationLayer = mapkit.createUserLocationLayer(mw)
+                      ..headingModeActive = false
+                      ..setVisible(true)
+                      ..setObjectListener(this);
                     _renderAll();
                   },
+                  onMapDispose: () {
+                    _cameraManager.dispose();
+                  },
+                ),
+                Positioned(
+                  bottom: 0.0,
+                  right: 0.0,
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 16.0, bottom: 16.0),
+                      child: MapControlButton(
+                        icon: Icons.my_location_outlined,
+                        backgroundColor: Theme.of(context).colorScheme.onSecondary,
+                        onPressed: () {
+                          _cameraManager.moveCameraToUserLocation();
+                        },
+                      ),
+                    ),
+                  ),
                 ),
                 // Сообщение о пустом результате поиска
                 if (_searchQuery.isNotEmpty && _filteredSpots.isEmpty)
@@ -439,6 +485,84 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         ],
       ),
     );
+  }
+  @override
+  void onObjectAdded(ymk.UserLocationView userLocationView) {
+    _userLocationLayer.setAnchor(
+      math.Point(_mapWindow.width() * 0.5, _mapWindow.height() * 0.5),
+      math.Point(_mapWindow.width() * 0.5, _mapWindow.height() * 0.5),
+    );
+
+    userLocationView.arrow.setIcon(arrowIconImageProvider);
+
+    final pinIcon = userLocationView.pin.useCompositeIcon();
+
+    pinIcon.setIcon(
+      iconImageProvider,
+      const ymk.IconStyle(
+        anchor: math.Point(0.0, 0.0),
+        rotationType: ymk.RotationType.Rotate,
+        zIndex: 0.0,
+        scale: 0.2,
+      ),
+      name: "icon",
+    );
+
+    pinIcon.setIcon(
+      pinIconImageProvider,
+      const ymk.IconStyle(
+        anchor: math.Point(0.5, 0.5),
+        rotationType: ymk.RotationType.Rotate,
+        zIndex: 1.0,
+        scale: 1.0,
+      ),
+      name: "pin",
+    );
+
+    userLocationView.accuracyCircle.fillColor = Colors.blue.withAlpha(100);
+  }
+
+  @override
+  void onObjectRemoved(ymk.UserLocationView view) {}
+
+  @override
+  void onObjectUpdated(ymk.UserLocationView view, ymk.ObjectEvent event) {}
+
+  void _showDialog(
+      String descriptionText,
+      ButtonTextsWithActions buttonTextsWithActions,
+      ) {
+    final actionButtons = buttonTextsWithActions.map((button) {
+      return TextButton(
+        onPressed: () {
+          Navigator.of(context).pop();
+          button.$2();
+        },
+        style: TextButton.styleFrom(
+          foregroundColor: Theme.of(context).colorScheme.secondary,
+          textStyle: Theme.of(context).textTheme.labelMedium,
+        ),
+        child: Text(button.$1),
+      );
+    }).toList();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          content: Text(descriptionText),
+          contentTextStyle: Theme.of(context).textTheme.labelLarge,
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          actions: actionButtons,
+        );
+      },
+    );
+  }
+
+  void _requestPermissionsIfNeeded() {
+    final permissions = [PermissionType.accessLocation];
+    _permissionManager.tryToRequest(permissions);
+    _permissionManager.showRequestDialog(permissions);
   }
 }
 
