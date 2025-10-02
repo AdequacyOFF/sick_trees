@@ -2,19 +2,19 @@
 
 ### Back-End
 
-_**https://github.com/AdequacyOFF/DendrotectorBack
+https://github.com/AdequacyOFF/DendrotectorBack
 
 ### Front-End
 
-_**https://github.com/AdequacyOFF/sick_trees/edit/presentation
+https://github.com/AdequacyOFF/sick_trees/edit/presentation
 
 ### ML
 
-_**https://github.com/AdequacyOFF/dendrotectorML
+https://github.com/AdequacyOFF/dendrotectorML
 
 ### В данном облаке презентация и собранное apk-приложение
 
-_**https://cloud.mail.ru/public/ncnb/SE98aUNoL
+https://cloud.mail.ru/public/ncnb/SE98aUNoL
 
 ## Мобильное приложение экосистемы "Dendrotector"
 
